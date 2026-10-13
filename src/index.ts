@@ -1308,19 +1308,18 @@ async function importLegacyPrefs(
 
 /**
  * Plugin body: mount the fenced routes and the sidebar_open push socket.
- * @param ctx - host plugin context (webServer, sessions, webRuntime).
+ * @param ctx - host plugin context (webServer, sessions).
  * @param config - deployment-provided limits; the Loader validates against
  * {@link Config} and fills defaults, direct callers get them from
  * {@link resolveSidebarConfig}.
  */
-export /**
+/**
  * Derive the trusted-host authorities from `--trusted-host` argv entries.
  *
- * DSH core no longer publishes the `webRuntime` service (its trusted-host
- * list used to be injected from there), so the sidebar reads the deployment's
- * own authorities straight from the process arguments instead. Both the
- * space-separated (`--trusted-host host:port`) and equals (`--trusted-host=…`)
- * spellings are accepted.
+ * Fallback for hosts that no longer publish the `webRuntime` service (its
+ * trusted-host list used to be injected from there). Both the space-separated
+ * (`--trusted-host host:port`) and equals (`--trusted-host=…`) spellings are
+ * accepted.
  */
 function trustedHostsFromArgv(): string[] {
   const hosts: string[] = []
@@ -1332,13 +1331,14 @@ function trustedHostsFromArgv(): string[] {
   return hosts.filter((h) => h.length > 0)
 }
 
-function apply(ctx: Context, config?: SidebarConfig): void {
+export function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
-  // The web runtime's bind-derived trust list (boot-sampled LAN literals
-  // plus --trusted-host authorities) — the authoritative source the /api
-  // gateway fence derives its list from. Read per request from the live
-  // service value; a replaced list takes effect without a plugin restart.
-  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, trustedHostsFromArgv())
+  // The deployment's trust list: the web runtime's bind-derived authorities
+  // when the host still publishes that service (read per request, so a
+  // replaced list takes effect without a plugin restart), otherwise the
+  // `--trusted-host` authorities from argv — the same authorities the host's
+  // own /api gateway fence derives from.
+  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, ctx.webRuntime?.trustedHosts ?? trustedHostsFromArgv())
   // The model-facing open-request registry: queues `sidebar_open` requests
   // per session and pushes them to connected sidebar views over the
   // `/sidebar/ws/agent-opens` socket.
