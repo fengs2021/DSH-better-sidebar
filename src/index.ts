@@ -110,7 +110,7 @@ export interface SidebarFsLevel {
 }
 
 /** Services required before mounting: the webserver routes, the session store, the web runtime's trusted hosts, and the tool registry. */
-export const inject = ['webServer', 'sessions', 'webRuntime', 'tools']
+export const inject = ['webServer', 'sessions', 'tools']
 
 /** Content types for the media route, by extension. */
 const MEDIA_TYPES: Record<string, string> = {
@@ -1190,13 +1190,32 @@ async function importLegacyPrefs(
  * {@link Config} and fills defaults, direct callers get them from
  * {@link resolveSidebarConfig}.
  */
-export function apply(ctx: Context, config?: SidebarConfig): void {
+export /**
+ * Derive the trusted-host authorities from `--trusted-host` argv entries.
+ *
+ * DSH core no longer publishes the `webRuntime` service (its trusted-host
+ * list used to be injected from there), so the sidebar reads the deployment's
+ * own authorities straight from the process arguments instead. Both the
+ * space-separated (`--trusted-host host:port`) and equals (`--trusted-host=…`)
+ * spellings are accepted.
+ */
+function trustedHostsFromArgv(): string[] {
+  const hosts: string[] = []
+  for (let i = 0; i < process.argv.length; i++) {
+    const arg = process.argv[i]!
+    if (arg === '--trusted-host' || arg === '--trustedHost') hosts.push(process.argv[++i] ?? '')
+    else if (arg.startsWith('--trusted-host=') || arg.startsWith('--trustedHost=')) hosts.push(arg.slice(arg.indexOf('=') + 1))
+  }
+  return hosts.filter((h) => h.length > 0)
+}
+
+function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
   // The web runtime's bind-derived trust list (boot-sampled LAN literals
   // plus --trusted-host authorities) — the authoritative source the /api
   // gateway fence derives its list from. Read per request from the live
   // service value; a replaced list takes effect without a plugin restart.
-  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, ctx.webRuntime.trustedHosts)
+  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, trustedHostsFromArgv())
   // The model-facing open-request registry: queues `sidebar_open` requests
   // per session and pushes them to connected sidebar views over the
   // `/sidebar/ws/agent-opens` socket.
