@@ -1334,11 +1334,17 @@ function trustedHostsFromArgv(): string[] {
 export function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
   // The deployment's trust list: the web runtime's bind-derived authorities
-  // when the host still publishes that service (read per request, so a
-  // replaced list takes effect without a plugin restart), otherwise the
-  // `--trusted-host` authorities from argv — the same authorities the host's
-  // own /api gateway fence derives from.
-  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, ctx.webRuntime?.trustedHosts ?? trustedHostsFromArgv())
+  // when the host still publishes that service, otherwise the `--trusted-host`
+  // authorities from argv — the same authorities the host's own /api gateway
+  // fence derives from.
+  //
+  // `ctx.get('webRuntime')` rather than `ctx.webRuntime`: the context is a
+  // cordis proxy whose `get` trap throws `cannot get property "webRuntime"
+  // without inject` the moment an un-injected key is read — and it throws
+  // before the optional chain can short-circuit, so `ctx.webRuntime?.x` is
+  // just as fatal as the bare form. `ctx.get` is the proxy's own accessor and
+  // returns `undefined` for a service the host no longer provides.
+  const fence = (req: SidebarHttpRequest): boolean => isTrustedApiRequest(req, ctx.get('webRuntime')?.trustedHosts ?? trustedHostsFromArgv())
   // The model-facing open-request registry: queues `sidebar_open` requests
   // per session and pushes them to connected sidebar views over the
   // `/sidebar/ws/agent-opens` socket.
