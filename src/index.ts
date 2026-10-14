@@ -1307,13 +1307,6 @@ async function importLegacyPrefs(
 }
 
 /**
- * Plugin body: mount the fenced routes and the sidebar_open push socket.
- * @param ctx - host plugin context (webServer, sessions).
- * @param config - deployment-provided limits; the Loader validates against
- * {@link Config} and fills defaults, direct callers get them from
- * {@link resolveSidebarConfig}.
- */
-/**
  * Derive the trusted-host authorities from `--trusted-host` argv entries.
  *
  * Fallback for hosts that no longer publish the `webRuntime` service (its
@@ -1331,6 +1324,13 @@ function trustedHostsFromArgv(): string[] {
   return hosts.filter((h) => h.length > 0)
 }
 
+/**
+ * Plugin body: mount the fenced routes and the sidebar_open push socket.
+ * @param ctx - host plugin context (webServer, sessions).
+ * @param config - deployment-provided limits; the Loader validates against
+ * {@link Config} and fills defaults, direct callers get them from
+ * {@link resolveSidebarConfig}.
+ */
 export function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
   // The deployment's trust list: the web runtime's bind-derived authorities
